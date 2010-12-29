@@ -6,7 +6,7 @@ import (
 )
 
 type TestFile struct {
-	path string
+	path    string
 	content string
 }
 
@@ -18,7 +18,7 @@ func TestGobuild(t *testing.T) {
 // test for a simple program with one file
 func TestSimpleProgram(t *testing.T) {
 	var prog = []TestFile{TestFile{"main.go", "package main\n\nfunc main() {\n\n}\n"}}
-    writeTestFiles(prog)
+	writeTestFiles(prog)
 }
 
 // test for a simple library with one package
@@ -82,5 +82,5 @@ func runGobuild() bool {
 }
 
 func BenchmarkGobuild(b *testing.B) {
-        fmt.Println("Benchmarks would be nice too...")
+	fmt.Println("Benchmarks would be nice too...")
 }

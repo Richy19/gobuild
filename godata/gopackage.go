@@ -14,9 +14,9 @@ import "./logger"
 
 const (
 	UNKNOWN_PACKAGE = iota // could be in the local path or somewhere else
-	                       // it's local if the package has files
-	LOCAL_PACKAGE   // imported with "./name" (and not "name")
-	REMOTE_PACKAGE  // unused right now
+	// it's local if the package has files
+	LOCAL_PACKAGE  // imported with "./name" (and not "name")
+	REMOTE_PACKAGE // unused right now
 )
 
 // ================================
@@ -27,8 +27,8 @@ type GoPackage struct {
 	Name       string         // name of the package
 	Path       string         // possible relative path to the package
 	Type       int            // local, remote or unknown (default)
-	Files      *vector.Vector  // a list of files for this package
-	Depends    *vector.Vector  // a list of other local packages this one depends on
+	Files      *vector.Vector // a list of files for this package
+	Depends    *vector.Vector // a list of other local packages this one depends on
 	Compiled   bool           // true = finished compiling
 	InProgress bool           // true = currently trying to compile dependencies (needed to find recursive dependencies)
 	HasErrors  bool           // true = compiler returned an error
@@ -312,4 +312,3 @@ func (this *GoPackageContainer) GetPackageNames() (packNames []string) {
 	}
 	return
 }
-

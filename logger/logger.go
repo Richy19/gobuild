@@ -12,7 +12,7 @@ import "os"
 
 const (
 	DEBUG   = -1 + iota // start with -1
-	DEFAULT // should be 0
+	DEFAULT             // should be 0
 	WARN
 	ERROR
 )

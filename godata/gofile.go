@@ -129,19 +129,19 @@ func (v astVisitor) Visit(node interface{}) (w ast.Visitor) {
 			// local package found
 			packName = string(n.Path.Value[3 : len(n.Path.Value)-1])
 			packType = LOCAL_PACKAGE
-			
+
 		} else {
 			packName = string(n.Path.Value[1 : len(n.Path.Value)-1])
 			packType = UNKNOWN_PACKAGE
 		}
-		
+
 		dep, exists := v.packs.Get(packName)
 		if !exists {
 			dep = v.packs.AddNewPackage(packName)
 		} else if dep.Type == LOCAL_PACKAGE {
 			packType = LOCAL_PACKAGE
 		}
-		
+
 		dep.Type = packType
 		v.file.Pack.Depends.Push(dep)
 
@@ -167,10 +167,9 @@ func (v astVisitor) Visit(node interface{}) (w ast.Visitor) {
 		*ast.GenDecl, *ast.Ident, []ast.Decl:
 		return v
 
-
 	default:
 		return nil // makes parsing faster
-			   // this may cause some files to not parse correctly
+		// this may cause some files to not parse correctly
 	}
 
 	return nil // unreachable
