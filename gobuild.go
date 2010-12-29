@@ -191,7 +191,6 @@ func createTestPackage() *godata.GoPackage {
 	var testFile *os.File
 	var err os.Error
 	var pack *godata.GoPackage
-	var flagsDeleted bool = false
 
 	testGoFile = new(godata.GoFile)
 	testPack = godata.NewGoPackage("main")
@@ -223,7 +222,7 @@ func createTestPackage() *godata.GoPackage {
 		"package main\n" +
 			"\nimport \"testing\"\n" +
 			"import \"fmt\"\n" +
-			"import \"os\"\n"
+			"import \"regexp\"\n"
 
 	// will create an array per package with all the Test* and Benchmark* functions
 	// tests/benchmarks will be done for each package seperatly so that running
@@ -252,12 +251,12 @@ func createTestPackage() *godata.GoPackage {
 
 		testFileSource += "import \"" + pack.Name + "\"\n"
 
-		tmpStr = "var test_" + localPackVarName + " = []testing.Test {\n"
+		tmpStr = "var test_" + localPackVarName + " = []testing.InternalTest {\n"
 		for _, igf := range *pack.Files {
 			logger.Debug("Test* from %s: \n", (igf.(*godata.GoFile)).Filename)
 			if (igf.(*godata.GoFile)).IsTestFile {
 				for _, istr := range *(igf.(*godata.GoFile)).TestFunctions {
-					tmpStr += "\ttesting.Test{ \"" +
+					tmpStr += "\ttesting.InternalTest{ \"" +
 						pack.Name + "." + istr.(string) +
 						"\", " +
 						localPackName + "." + istr.(string) +
@@ -271,23 +270,16 @@ func createTestPackage() *godata.GoPackage {
 		if fnCount > 0 {
 			testCalls +=
 				"\tfmt.Println(\"Testing " + pack.Name + ":\");\n" +
-					"\ttesting.Main(test_" + localPackVarName + ");\n"
+					"\ttesting.Main(regexp.MatchString, test_" + localPackVarName + ");\n"
 			testArrays += tmpStr
-
-			if !flagsDeleted {
-				// this is needed because testing.Main calls flags.Parse
-				// which collides with previous calls to that function
-				testCalls += "\tos.Args = []string{}\n"
-				flagsDeleted = true
-			}
 		}
 
 		fnCount = 0
-		tmpStr = "var bench_" + localPackVarName + " = []testing.Benchmark {\n"
+		tmpStr = "var bench_" + localPackVarName + " = []testing.InternalBenchmark {\n"
 		for _, igf := range *pack.Files {
 			if (igf.(*godata.GoFile)).IsTestFile {
 				for _, istr := range *(igf.(*godata.GoFile)).BenchmarkFunctions {
-					tmpStr += "\ttesting.Benchmark{ \"" +
+					tmpStr += "\ttesting.InternalBenchmark{ \"" +
 						pack.Name + "." + istr.(string) +
 						"\", " +
 						localPackName + "." + istr.(string) +
@@ -301,7 +293,7 @@ func createTestPackage() *godata.GoPackage {
 		if fnCount > 0 {
 			benchCalls +=
 				"\tfmt.Println(\"Benchmarking " + pack.Name + ":\");\n" +
-					"\ttesting.RunBenchmarks(bench_" + localPackVarName + ");\n"
+					"\ttesting.RunBenchmarks(regexp.MatchString, bench_" + localPackVarName + ");\n"
 			testArrays += tmpStr
 		}
 	}

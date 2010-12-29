@@ -12,6 +12,7 @@ import (
 	"os"
 	"go/ast"
 	"go/parser"
+	"go/token"
 	"./logger"
 	"container/vector"
 )
@@ -49,7 +50,8 @@ func (this *GoFile) ParseFile(packs *GoPackageContainer) (err os.Error) {
 	var packName string
 	var fileast *ast.File
 
-	if fileast, err = parser.ParseFile(this.Filename, nil, 0); err != nil {
+	fileset := token.NewFileSet()
+	if fileast, err = parser.ParseFile(fileset, this.Filename, nil, 0); err != nil {
 		logger.Error("%s\n", err)
 		os.Exit(1)
 	}
@@ -117,7 +119,7 @@ type astVisitor struct {
  Implementation of the visitor interface for ast walker.
  Returning nil stops the walker, anything else continues into the subtree
 */
-func (v astVisitor) Visit(node interface{}) (w ast.Visitor) {
+func (v astVisitor) Visit(node ast.Node) (w ast.Visitor) {
 	switch n := node.(type) {
 	case *ast.ImportSpec:
 		var packName string
@@ -164,7 +166,7 @@ func (v astVisitor) Visit(node interface{}) (w ast.Visitor) {
 		}
 		return nil
 	case *ast.Package, *ast.File, *ast.BadDecl,
-		*ast.GenDecl, *ast.Ident, []ast.Decl:
+		*ast.GenDecl, *ast.Ident, *ast.DeclStmt:
 		return v
 
 	default:
