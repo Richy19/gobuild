@@ -173,8 +173,10 @@ func readFiles(rootpath string) {
 
 	path.Walk(visitor.realpath, visitor, errorChannel)
 
-	if err, ok := <-errorChannel; ok {
+	select {
+	case err := <-errorChannel:
 		logger.Error("Error while traversing directories: %s\n", err)
+	default:
 	}
 }
 
