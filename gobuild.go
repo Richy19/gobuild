@@ -309,7 +309,7 @@ func createTestPackage() *godata.GoPackage {
 			benchCalls +
 			"}\n"
 
-	testFile, err = os.Open(testGoFile.Filename, os.O_CREAT|os.O_WRONLY|os.O_TRUNC, 0666)
+	testFile, err = os.Create(testGoFile.Filename)
 	if err != nil {
 		logger.Error("Could not create %s: %s\n", testGoFile.Filename, err)
 		os.Exit(1)
