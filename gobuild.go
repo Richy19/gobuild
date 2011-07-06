@@ -415,7 +415,7 @@ func compile(pack *godata.GoPackage) bool {
 		logger.Info("Compiling %s (%s)...\n", pack.Name, pack.OutputFile)
 	}
 
-	argc = pack.Files.Len() + 3
+	argc = pack.Files.Len() + 2
 	if *flagIncludePaths != "" {
 		argc += 2 * (strings.Count(*flagIncludePaths, ",") + 1)
 	}
@@ -424,8 +424,6 @@ func compile(pack *godata.GoPackage) bool {
 	}
 	argv = make([]string, argc)
 
-	argv[argvFilled] = compilerBin
-	argvFilled++
 	argv[argvFilled] = "-o"
 	argvFilled++
 	argv[argvFilled] = outputFile + objExt
@@ -458,20 +456,12 @@ func compile(pack *godata.GoPackage) bool {
 	}
 
 	logger.Debug("%s\n", getCommandline(argv[0:argvFilled]))
-	cmd, err := exec.Run(compilerBin, argv[0:argvFilled], os.Environ(), rootPath,
-		exec.DevNull, exec.PassThrough, exec.PassThrough)
+	cmd := exec.Command(compilerBin, argv[0:argvFilled]...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
 	if err != nil {
 		logger.Error("%s\n", err)
-		os.Exit(1)
-	}
-
-	waitmsg, err := cmd.Wait(0)
-	if err != nil {
-		logger.Error("Compiler execution error (%s), aborting compilation.\n", err)
-		os.Exit(1)
-	}
-
-	if waitmsg.ExitStatus() != 0 {
 		pack.HasErrors = true
 		pack.InProgress = false
 		return false
@@ -494,7 +484,7 @@ func link(pack *godata.GoPackage) bool {
 	var objDir string = "" //outputDirPrefix + getObjDir();
 
 	// build the command line for the linker
-	argc = 4
+	argc = 3
 	if *flagIncludePaths != "" {
 		argc += 2
 	}
@@ -504,8 +494,6 @@ func link(pack *godata.GoPackage) bool {
 
 	argv = make([]string, argc)
 
-	argv[argvFilled] = linkerBin
-	argvFilled++
 	argv[argvFilled] = "-o"
 	argvFilled++
 	argv[argvFilled] = outputDirPrefix + pack.OutputFile
@@ -529,23 +517,15 @@ func link(pack *godata.GoPackage) bool {
 	argv[argvFilled] = objDir + pack.OutputFile + objExt
 	argvFilled++
 
-	logger.Info("Linking %s...\n", argv[2])
+	logger.Info("Linking %s...\n", argv[1])
 	logger.Debug("%s\n", getCommandline(argv))
 
-	cmd, err := exec.Run(linkerBin, argv, os.Environ(), rootPath,
-		exec.DevNull, exec.PassThrough, exec.PassThrough)
+	cmd := exec.Command(linkerBin, argv...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
 	if err != nil {
 		logger.Error("%s\n", err)
-		os.Exit(1)
-	}
-	waitmsg, err := cmd.Wait(0)
-	if err != nil {
-		logger.Error("Linker execution error (%s), aborting compilation.\n", err)
-		os.Exit(1)
-	}
-
-	if waitmsg.ExitStatus() != 0 {
-		logger.Error("Linker returned with errors, aborting.\n")
 		return false
 	}
 	return true
@@ -574,22 +554,15 @@ func goyacc(filepath string) string {
 
 	logger.Info("Parsing goyacc file %s.\n", filepath)
 
-	argv := []string{goyaccPath, "-o", outFilepath, filepath}
+	argv := []string{"-o", outFilepath, filepath}
 	logger.Debug("%s\n", argv)
-	cmd, err := exec.Run(argv[0], argv, os.Environ(), rootPath,
-		exec.PassThrough, exec.PassThrough, exec.PassThrough)
+	cmd := exec.Command(goyaccPath, argv...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err = cmd.Run()
 	if err != nil {
 		logger.Error("%s\n", err)
 		os.Exit(1)
-	}
-	waitmsg, err := cmd.Wait(0)
-	if err != nil {
-		logger.Error("Executing goyacc failed: %s.\n", err)
-		os.Exit(1)
-	}
-
-	if waitmsg.ExitStatus() != 0 {
-		os.Exit(waitmsg.ExitStatus())
 	}
 
 	return outFilepath
@@ -601,20 +574,14 @@ func goyacc(filepath string) string {
 func runExec(argv []string) {
 	logger.Info("Executing %s:\n", argv[0])
 	logger.Debug("%s\n", getCommandline(argv))
-	cmd, err := exec.Run(argv[0], argv, os.Environ(), rootPath,
-		exec.PassThrough, exec.PassThrough, exec.PassThrough)
+	cmd := exec.Command(argv[0], argv[1:]...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	err := cmd.Run()
 	if err != nil {
 		logger.Error("%s\n", err)
 		os.Exit(1)
-	}
-	waitmsg, err := cmd.Wait(0)
-	if err != nil {
-		logger.Error("Executing %s failed: %s.\n", argv[0], err)
-		os.Exit(1)
-	}
-
-	if waitmsg.ExitStatus() != 0 {
-		os.Exit(waitmsg.ExitStatus())
 	}
 }
 
@@ -634,28 +601,19 @@ func packLib(pack *godata.GoPackage) {
 	logger.Info("Creating %s.a...\n", pack.Name)
 
 	argv := []string{
-		gopackBin,
 		"crg", // create new go archive
 		outputDirPrefix + pack.Name + ".a",
 		objDir + pack.Name + objExt,
 	}
 
 	logger.Debug("%s\n", getCommandline(argv))
-	cmd, err := exec.Run(gopackBin, argv, os.Environ(), rootPath,
-		exec.DevNull, exec.PassThrough, exec.PassThrough)
+	cmd := exec.Command(gopackBin, argv...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
 	if err != nil {
 		logger.Error("%s\n", err)
 		os.Exit(1)
-	}
-	waitmsg, err := cmd.Wait(0)
-	if err != nil {
-		logger.Error("gopack execution error (%s), aborting.\n", err)
-		os.Exit(1)
-	}
-
-	if waitmsg.ExitStatus() != 0 {
-		logger.Error("gopack returned with errors, aborting.\n")
-		os.Exit(waitmsg.ExitStatus())
 	}
 }
 
@@ -886,7 +844,7 @@ func clean() {
 		os.Exit(127)
 	}
 
-	argv := []string{bashBin, "-c", "commandhere"}
+	argv := []string{"-c", "commandhere"}
 
 	if *flagVerboseMode {
 		argv[2] = "rm -rfv *.[568]"
@@ -896,21 +854,13 @@ func clean() {
 
 	logger.Info("Running: %v\n", argv[2:])
 
-	cmd, err := exec.Run(bashBin, argv, os.Environ(), rootPath,
-		exec.DevNull, exec.PassThrough, exec.PassThrough)
+	cmd := exec.Command(bashBin, argv...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err = cmd.Run()
 	if err != nil {
 		logger.Error("%s\n", err)
 		os.Exit(1)
-	}
-	waitmsg, err := cmd.Wait(0)
-	if err != nil {
-		logger.Error("Couldn't delete files: %s\n", err)
-		os.Exit(1)
-	}
-
-	if waitmsg.ExitStatus() != 0 {
-		logger.Error("rm returned with errors.\n")
-		os.Exit(waitmsg.ExitStatus())
 	}
 }
 
