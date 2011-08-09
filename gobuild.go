@@ -430,7 +430,7 @@ func compile(pack *godata.GoPackage) bool {
 	argvFilled++
 
 	if *flagIncludePaths != "" {
-		for _, includePath := range strings.Split(*flagIncludePaths, ",", 0) {
+		for _, includePath := range strings.SplitN(*flagIncludePaths, ",", 0) {
 			argv[argvFilled] = "-I"
 			argvFilled++
 			argv[argvFilled] = includePath
