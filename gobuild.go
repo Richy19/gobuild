@@ -271,12 +271,11 @@ func createTestPackage() *godata.GoPackage {
 
 		if fnCount > 0 {
 			testCalls +=
-				"\tfmt.Println(\"Testing " + pack.Name + ":\");\n" +
-					"\ttesting.Main(regexp.MatchString, test_" + localPackVarName + ");\n"
+			"\tfmt.Println(\"Testing " + pack.Name + ":\");\n" +
+					"\ttesting.RunTests(regexp.MatchString, test_" + localPackVarName + ");\n"
 			testArrays += tmpStr
 		}
 
-		fnCount = 0
 		tmpStr = "var bench_" + localPackVarName + " = []testing.InternalBenchmark {\n"
 		for _, igf := range *pack.Files {
 			if (igf.(*godata.GoFile)).IsTestFile {
@@ -291,6 +290,8 @@ func createTestPackage() *godata.GoPackage {
 			}
 		}
 		tmpStr += "}\n\n"
+
+		fnCount = 0
 
 		if fnCount > 0 {
 			benchCalls +=
@@ -574,7 +575,7 @@ func goyacc(filepath string) string {
 func runExec(argv []string) {
 	logger.Info("Executing %s:\n", argv[0])
 	logger.Debug("%s\n", getCommandline(argv))
-	cmd := exec.Command(argv[0], argv[1:]...)
+	cmd := exec.Command("./"+argv[0], argv[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
