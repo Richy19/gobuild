@@ -7,7 +7,6 @@
 */
 package godata
 
-import "container/vector"
 import "os"
 import "./logger"
 
@@ -27,8 +26,8 @@ type GoPackage struct {
 	Name       string         // name of the package
 	Path       string         // possible relative path to the package
 	Type       int            // local, remote or unknown (default)
-	Files      *vector.Vector // a list of files for this package
-	Depends    *vector.Vector // a list of other local packages this one depends on
+	Files      []*GoFile       // a list of files for this package
+	Depends    []*GoPackage    // a list of other local packages this one depends on
 	Compiled   bool           // true = finished compiling
 	InProgress bool           // true = currently trying to compile dependencies (needed to find recursive dependencies)
 	HasErrors  bool           // true = compiler returned an error
@@ -45,15 +44,13 @@ func NewGoPackage(name string) *GoPackage {
 	pack.InProgress = false
 	pack.HasErrors = false
 	pack.Name = name
-	pack.Files = new(vector.Vector)
-	pack.Depends = new(vector.Vector)
 	pack.OutputFile = name
 
 	return pack
 }
 
 /*
- Creates a clone of a package. Entries in files and depends are the same but with new vectors.
+ Creates a clone of a package. Entries in files and depends are the same but with new arrays.
 */
 func (this *GoPackage) Clone() *GoPackage {
 	pack := new(GoPackage)
@@ -62,10 +59,8 @@ func (this *GoPackage) Clone() *GoPackage {
 	pack.InProgress = this.InProgress
 	pack.HasErrors = this.HasErrors
 	pack.Name = this.Name
-	pack.Files = new(vector.Vector)
-	this.Files.Do(func(gf interface{}) { pack.Files.Push(gf.(*GoFile)) })
-	pack.Depends = new(vector.Vector)
-	this.Depends.Do(func(dep interface{}) { pack.Depends.Push(dep.(*GoPackage)) })
+	copy(pack.Files, this.Files)
+	copy(pack.Depends, this.Depends)
 	pack.OutputFile = this.OutputFile
 
 	return pack
@@ -80,8 +75,15 @@ func (this *GoPackage) Merge(pack *GoPackage) {
 		logger.Warn("Trying to merge identical packages!\n")
 		return // don't merge duplicates
 	}
-	pack.Files.Do(func(gf interface{}) { this.Files.Push(gf.(*GoFile)) })
-	pack.Depends.Do(func(dep interface{}) { this.Depends.Push(dep.(*GoPackage)) })
+	
+	for _, f := range pack.Files {
+		this.Files = append(this.Files, f)
+	}
+
+	for _, dep := range pack.Depends {
+		this.Depends = append(this.Depends, dep)
+	}
+
 	if pack.Type == LOCAL_PACKAGE {
 		this.Type = LOCAL_PACKAGE
 	}
@@ -91,23 +93,20 @@ func (this *GoPackage) Merge(pack *GoPackage) {
 
 */
 func (this *GoPackage) NeedsLocalSearchPath() bool {
-	var ret bool = false
-	this.Depends.Do(func(dep interface{}) {
-		depPack := dep.(*GoPackage)
-		if depPack.Type == UNKNOWN_PACKAGE && depPack.Files.Len() > 0 {
-			ret = true
+	for _, depPack := range this.Depends {
+		if depPack.Type == UNKNOWN_PACKAGE && len(depPack.Files) > 0 {
+			return true
 		}
-	})
-
-	return ret
+	}
+	return false
 }
 
 /*
  Returns true if one of the files for this package contains some test functions.
 */
 func (this *GoPackage) HasTestFiles() bool {
-	for _, e := range *this.Files {
-		if e.(*GoFile).IsTestFile {
+	for _, e := range this.Files {
+		if e.IsTestFile {
 			return true
 		}
 	}
@@ -119,12 +118,11 @@ func (this *GoPackage) HasTestFiles() bool {
  can't be compiled by gobuild right now.
 */
 func (this *GoPackage) HasCGOFiles() bool {
-	for _, e := range *this.Files {
-		if e.(*GoFile).IsCGOFile {
+	for _, e := range this.Files {
+		if e.IsCGOFile {
 			return true
 		}
 	}
-
 	return false
 }
 
@@ -200,7 +198,7 @@ func (this *GoPackageContainer) AddFile(gf *GoFile, packageName string) {
 		} else {
 			gf.Pack.OutputFile = DefaultOutputFileName
 		}
-		gf.Pack.Files.Push(gf)
+		gf.Pack.Files = append(gf.Pack.Files, gf)
 		return
 	}
 
@@ -213,7 +211,7 @@ func (this *GoPackageContainer) AddFile(gf *GoFile, packageName string) {
 		gf.Pack = existingPack
 	}
 
-	gf.Pack.Files.Push(gf)
+	gf.Pack.Files = append(gf.Pack.Files, gf)
 }
 
 /*
@@ -281,7 +279,7 @@ func (this *GoPackageContainer) GetMainFilenames() (names []string) {
 }
 
 /*
- This method will return an array of  packages, one for every file that has
+ This method will return an array of packages, one for every file that has
  a main function in it. If merge is true the packages will be merged with other
  files of the main package that don't have a main function in it.
  The returned packages may be copies of the one inside the container. Writing to

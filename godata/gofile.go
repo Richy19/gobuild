@@ -14,7 +14,6 @@ import (
 	"go/parser"
 	"go/token"
 	"./logger"
-	"container/vector"
 )
 
 var DefaultOutputFileName string
@@ -37,8 +36,8 @@ type GoFile struct {
 	HasMain            bool           // main function found (only true for main package)
 	IsCGOFile          bool           // imports "C"
 	IsTestFile         bool           // files with "_test.go" suffix
-	TestFunctions      *vector.Vector // vector of all test functions (name only)
-	BenchmarkFunctions *vector.Vector // vector of all benchmark functions (name only)
+	TestFunctions      []string       // list of all test functions (name only)
+	BenchmarkFunctions []string       // list of all benchmark functions (name only)
 }
 
 
@@ -145,7 +144,7 @@ func (v astVisitor) Visit(node ast.Node) (w ast.Visitor) {
 		}
 
 		dep.Type = packType
-		v.file.Pack.Depends.Push(dep)
+		v.file.Pack.Depends = append(v.file.Pack.Depends, dep)
 
 		if string(n.Path.Value) == "\"C\"" {
 			v.file.IsCGOFile = true
@@ -158,11 +157,11 @@ func (v astVisitor) Visit(node ast.Node) (w ast.Visitor) {
 		} else if n.Recv == nil && v.file.IsTestFile &&
 			strings.HasPrefix(n.Name.String(), "Test") &&
 			n.Body != nil {
-			v.file.TestFunctions.Push(n.Name.String())
+			v.file.TestFunctions = append(v.file.TestFunctions, n.Name.String())
 		} else if n.Recv == nil && v.file.IsTestFile &&
 			strings.HasPrefix(n.Name.String(), "Benchmark") &&
 			n.Body != nil {
-			v.file.BenchmarkFunctions.Push(n.Name.String())
+			v.file.BenchmarkFunctions = append(v.file.BenchmarkFunctions, n.Name.String())
 		}
 		return nil
 	case *ast.Package, *ast.File, *ast.BadDecl,
