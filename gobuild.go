@@ -14,7 +14,6 @@ import (
 	"flag"
 	"path/filepath"
 	"strings"
-	"container/vector"
 	"./godata"
 	"./logger"
 )
@@ -107,10 +106,6 @@ func (v *goFileVisitor) VisitFile(filepath string, d *os.FileInfo) {
 			}
 		}
 
-		if gf.IsTestFile {
-			gf.TestFunctions = new(vector.Vector)
-			gf.BenchmarkFunctions = new(vector.Vector)
-		}
 		logger.Debug("Parsing file: %s\n", filepath)
 
 		gf.ParseFile(goPackages)
@@ -203,18 +198,18 @@ func createTestPackage() *godata.GoPackage {
 	testGoFile.IsTestFile = true
 
 	testPack.OutputFile = "_testmain"
-	testPack.Files.Push(testGoFile)
+	testPack.Files = append(testPack.Files, testGoFile)
 
 	// search for packages with _test.go files
 	for _, packName := range goPackages.GetPackageNames() {
 		pack, _ = goPackages.Get(packName)
 
 		if pack.HasTestFiles() {
-			testPack.Depends.Push(pack)
+			testPack.Depends = append(testPack.Depends, pack)
 		}
 	}
 
-	if testPack.Depends.Len() == 0 {
+	if len(testPack.Depends) == 0 {
 		logger.Error("No _test.go files found.\n")
 		os.Exit(1)
 	}
@@ -229,10 +224,9 @@ func createTestPackage() *godata.GoPackage {
 	// will create an array per package with all the Test* and Benchmark* functions
 	// tests/benchmarks will be done for each package seperatly so that running
 	// the _testmain program will result in multiple PASS (or fail) outputs.
-	for _, ipack := range *testPack.Depends {
+	for _, pack := range testPack.Depends {
 		var tmpStr string
 		var fnCount int = 0
-		pack := (ipack.(*godata.GoPackage))
 
 		// localPackVarName: contains the test functions, package name
 		// with '/' replaced by '_'
@@ -254,14 +248,14 @@ func createTestPackage() *godata.GoPackage {
 		testFileSource += "import \"" + pack.Name + "\"\n"
 
 		tmpStr = "var test_" + localPackVarName + " = []testing.InternalTest {\n"
-		for _, igf := range *pack.Files {
-			logger.Debug("Test* from %s: \n", (igf.(*godata.GoFile)).Filename)
-			if (igf.(*godata.GoFile)).IsTestFile {
-				for _, istr := range *(igf.(*godata.GoFile)).TestFunctions {
+		for _, gf := range pack.Files {
+			logger.Debug("Test* from %s: \n", gf.Filename)
+			if gf.IsTestFile {
+				for _, str := range gf.TestFunctions {
 					tmpStr += "\ttesting.InternalTest{ \"" +
-						pack.Name + "." + istr.(string) +
+						pack.Name + "." + str +
 						"\", " +
-						localPackName + "." + istr.(string) +
+						localPackName + "." + str +
 						" },\n"
 					fnCount++
 				}
@@ -277,13 +271,13 @@ func createTestPackage() *godata.GoPackage {
 		}
 
 		tmpStr = "var bench_" + localPackVarName + " = []testing.InternalBenchmark {\n"
-		for _, igf := range *pack.Files {
-			if (igf.(*godata.GoFile)).IsTestFile {
-				for _, istr := range *(igf.(*godata.GoFile)).BenchmarkFunctions {
+		for _, gf := range pack.Files {
+			if gf.IsTestFile {
+				for _, str := range gf.BenchmarkFunctions {
 					tmpStr += "\ttesting.InternalBenchmark{ \"" +
-						pack.Name + "." + istr.(string) +
+						pack.Name + "." + str +
 						"\", " +
-						localPackName + "." + istr.(string) +
+						localPackName + "." + str +
 						" },\n"
 					fnCount++
 				}
@@ -344,8 +338,7 @@ func compile(pack *godata.GoPackage) bool {
 	pack.InProgress = true
 
 	// first compile all dependencies
-	for _, idep := range *pack.Depends {
-		dep := idep.(*godata.GoPackage)
+	for _, dep := range pack.Depends {
 		if dep.HasErrors {
 			pack.HasErrors = true
 			pack.InProgress = false
@@ -354,7 +347,7 @@ func compile(pack *godata.GoPackage) bool {
 
 		if !dep.Compiled &&
 			(dep.Type == godata.LOCAL_PACKAGE ||
-				dep.Type == godata.UNKNOWN_PACKAGE && dep.Files.Len() > 0) {
+			dep.Type == godata.UNKNOWN_PACKAGE && len(dep.Files) > 0) {
 			if !compile(dep) {
 				pack.HasErrors = true
 				pack.InProgress = false
@@ -377,7 +370,7 @@ func compile(pack *godata.GoPackage) bool {
 	}
 
 	// check if this package has any files (if not -> error)
-	if pack.Files.Len() == 0 && pack.Type == godata.LOCAL_PACKAGE {
+	if len(pack.Files) == 0 && pack.Type == godata.LOCAL_PACKAGE {
 		logger.Error("No files found for package %s.\n", pack.Name)
 		os.Exit(1)
 	}
@@ -416,7 +409,7 @@ func compile(pack *godata.GoPackage) bool {
 		logger.Info("Compiling %s (%s)...\n", pack.Name, pack.OutputFile)
 	}
 
-	argc = pack.Files.Len() + 2
+	argc = len(pack.Files) + 2
 	if *flagIncludePaths != "" {
 		argc += 2 * (strings.Count(*flagIncludePaths, ",") + 1)
 	}
@@ -450,8 +443,7 @@ func compile(pack *godata.GoPackage) bool {
 		argvFilled++
 	}
 
-	for i := 0; i < pack.Files.Len(); i++ {
-		gf := pack.Files.At(i).(*godata.GoFile)
+	for _, gf := range pack.Files {
 		argv[argvFilled] = gf.Filename
 		argvFilled++
 	}
@@ -721,7 +713,7 @@ func buildLibrary() {
 		if pack.Name == "main" {
 			continue
 		}
-		if pack.Files.Len() > 0 && !pack.HasCGOFiles() {
+		if len(pack.Files) > 0 && !pack.HasCGOFiles() {
 			hasNoCompilablePacks = false
 			break
 		}
@@ -753,12 +745,12 @@ func buildLibrary() {
 		}
 
 		// don't compile remote packages or packages without files
-		if pack.Type == godata.REMOTE_PACKAGE || pack.Files.Len() == 0 {
+		if pack.Type == godata.REMOTE_PACKAGE || len(pack.Files) == 0 {
 			continue
 		}
 
 		// these packages come from invalid/unhandled imports
-		if pack.Files.Len() == 0 {
+		if len(pack.Files) == 0 {
 			logger.Debug("Skipping package %s, no files to compile.\n", pack.Name)
 			continue
 		}
